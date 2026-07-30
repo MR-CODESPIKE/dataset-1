@@ -1,0 +1,29 @@
+name: Embed and Upsert to Chroma
+
+# Manually triggered -- run this whenever ground_truth_kb.csv changes on
+# Hugging Face, to refresh the Chroma Cloud collection used for RAG retrieval.
+on:
+  workflow_dispatch:
+
+jobs:
+  embed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install chromadb google-genai requests
+
+      - name: Run embedding script
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
+          CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
+          CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
+        run: python embed_and_upsert.py
