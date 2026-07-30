@@ -6,218 +6,233 @@ import pandas as pd
 from pathlib import Path
 from google import genai
 from google.genai import types
-from huggingface_hub import HfApi, hf_hub_download
+from huggingface_hub import HfApi, hf_hub_download, create_repo
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
-HF_REPO_ID = os.environ.get("HF_REPO_ID") # e.g. "username/agri-vet-multilingual"
+# Environment configurations
+HF_REPO_ID = os.environ.get("HF_REPO_ID")
 HF_TOKEN = os.environ.get("HF_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 CHECKPOINT_FILE = "checkpoint.json"
 DATA_DIR = "data"
 
-# Batch definitions matching Kaggle datasets
+# Agri-Vet Multilingual dataset batch specifications
 KAGGLE_BATCHES = [
-    {"batch_id": "batch_01", "crop": "cassava", "kaggle_dataset": "abdallahwagih/cassava-leaf-disease-classification"},
-    {"batch_id": "batch_02", "crop": "maize", "kaggle_dataset": "sriramr/corn-or-maize-leaf-disease-dataset"},
-    {"batch_id": "batch_03", "crop": "rice", "kaggle_dataset": "vbookshelf/rice-leaf-diseases"},
-    {"batch_id": "batch_04", "crop": "tomato", "kaggle_dataset": "kaustubhb999/tomatoleaf"},
-    {"batch_id": "batch_05", "crop": "livestock_cattle", "kaggle_dataset": "alvarobas3/cow-disease-dataset"},
+    {"batch_id": "batch_01", "crop_animal": "Cassava", "disease_condition": "Mosaic Disease", "language": "English"},
+    {"batch_id": "batch_02", "crop_animal": "Cassava", "disease_condition": "Brown Streak", "language": "Swahili"},
+    {"batch_id": "batch_03", "crop_animal": "Maize", "disease_condition": "Fall Armyworm", "language": "Hausa"},
+    {"batch_id": "batch_04", "crop_animal": "Maize", "disease_condition": "Maize Lethal Necrosis", "language": "Yoruba"},
+    {"batch_id": "batch_05", "crop_animal": "Cattle", "disease_condition": "Foot and Mouth Disease", "language": "Fulfulde"},
+    {"batch_id": "batch_06", "crop_animal": "Poultry", "disease_condition": "Newcastle Disease", "language": "Igbo"},
+    {"batch_id": "batch_07", "crop_animal": "Tomato", "disease_condition": "Late Blight", "language": "French"},
+    {"batch_id": "batch_08", "crop_animal": "Goat/Sheep", "disease_condition": "PPR (Peste des Petits Ruminants)", "language": "Amharic"}
 ]
 
 PROMPT_TEMPLATE = """
-Generate 10 synthetic AgVet advisory Q&A pairs for local farmers dealing with {crop} diseases or health issues.
+You are an expert Agricultural and Veterinary Specialist.
+Generate synthetic dataset entries for Agri-Vet diagnostic assistance.
 
-Output strict JSON with this exact key structure:
-{{
-  "samples": [
-    {{
-      "crop": "{crop}",
-      "question_en": "What causes black spots on leaves?",
-      "answer_en": "Black spots are typically caused by fungal infections...",
-      "question_sw": "Ni nini kinachosababisha madoa meusi kwenye majani?",
-      "answer_sw": "Madoa meusi kwa kawaida husababishwa na maambukizi ya fangasi...",
-      "question_ha": "Mene ne yake sa bakake a ganye?",
-      "answer_ha": "A yawancin lokuta, bakaken cututtuka na fitowa ne saboda fungus..."
+Crop/Animal: {crop_animal}
+Target Disease/Condition: {disease_condition}
+Language: {language}
+
+Generate a JSON list of 5 high-quality QA / instruction tuning pairs formatted strictly as:
+[
+  {{
+    "instruction": "Symptom description or query from a farmer in {language} regarding {crop_animal} {disease_condition}",
+    "input": "",
+    "output": "Detailed diagnostic and treatment recommendation in {language}",
+    "metadata": {{
+      "crop_animal": "{crop_animal}",
+      "condition": "{disease_condition}",
+      "language": "{language}"
     }}
-  ]
-}}
+  }}
+]
+Return ONLY valid JSON with no markdown tags or conversational text.
 """
 
-# ==========================================
-# HUGGING FACE & CHECKPOINT UTILS
-# ==========================================
-api = HfApi()
-
 def load_checkpoint():
-    if os.path.exists(CHECKPOINT_FILE):
-        with open(CHECKPOINT_FILE, "r") as f:
-            return json.load(f)
-    
-    # Try downloading from Hugging Face if not locally available
+    """Load execution state from the Hugging Face repository if present."""
     try:
-        path = hf_hub_download(repo_id=HF_REPO_ID, filename=CHECKPOINT_FILE, repo_type="dataset", token=HF_TOKEN)
-        with open(path, "r") as f:
+        local_path = hf_hub_download(
+            repo_id=HF_REPO_ID,
+            filename=CHECKPOINT_FILE,
+            repo_type="dataset",
+            token=HF_TOKEN
+        )
+        with open(local_path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except Exception as e:
+        print(f"ℹ️ No existing checkpoint found on Hugging Face ({e}). Initializing clean state.")
         return {"completed_batches": []}
 
-def save_and_push_checkpoint(checkpoint_data):
-    with open(CHECKPOINT_FILE, "w") as f:
-        json.dump(checkpoint_data, f, indent=2)
+def save_and_push_checkpoint(checkpoint, api):
+    """Save progress locally and push update to Hugging Face."""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    local_cp_path = os.path.join(DATA_DIR, CHECKPOINT_FILE)
+    with open(local_cp_path, "w", encoding="utf-8") as f:
+        json.dump(checkpoint, f, indent=2)
     
     api.upload_file(
-        path_or_fileobj=CHECKPOINT_FILE,
+        path_or_fileobj=local_cp_path,
         path_in_repo=CHECKPOINT_FILE,
         repo_id=HF_REPO_ID,
         repo_type="dataset",
-        token=HF_TOKEN
+        commit_message="Update progress checkpoint"
     )
+    print("📌 Progress checkpoint synchronized to Hugging Face.")
 
-# ==========================================
-# GEMINI GENERATION LOGIC
-# ==========================================
-def generate_batch_data(crop_name):
-    client = genai.Client(api_key=GEMINI_API_KEY)
-    prompt = PROMPT_TEMPLATE.format(crop=crop_name)
+def generate_batch_data(client, batch_info):
+    """Generate synthetic QA samples using Gemini 2.5 Flash."""
+    prompt = PROMPT_TEMPLATE.format(
+        crop_animal=batch_info["crop_animal"],
+        disease_condition=batch_info["disease_condition"],
+        language=batch_info["language"]
+    )
     
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=prompt,
         config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            temperature=0.3
+            temperature=0.3,
+            response_mime_type="application/json"
         )
     )
     
-    parsed = json.loads(response.text)
-    return parsed.get("samples", [])
+    return json.loads(response.text)
 
-# ==========================================
-# DATASET CONSOLIDATION STEP (NEW)
-# ==========================================
-def consolidate_dataset():
-    """Downloads all batch chunks from Hugging Face, merges them into Parquet & JSONL formats, and uploads them."""
-    print("\n" + "="*50)
-    print("🧹 STARTING DATASET MERGE & CONSOLIDATION PHASE")
-    print("="*50)
+def consolidate_dataset(api):
+    """Fetch all generated batch files, merge into unified Parquet/JSONL files, and push to HF."""
+    print("\n🎉 All batches complete! Starting dataset consolidation...")
     
-    # 1. Fetch repo file list
-    repo_files = api.list_repo_files(repo_id=HF_REPO_ID, repo_type="dataset", token=HF_TOKEN)
-    chunk_files = [f for f in repo_files if f.startswith("data/batch_") and f.endswith(".jsonl")]
-    
-    if not chunk_files:
-        print("⚠️ No batch chunk files found to consolidate.")
-        return
-
-    all_records = []
-    
-    # 2. Fetch and read each chunk file
-    for chunk_file in chunk_files:
-        print(f"📥 Downloading chunk: {chunk_file}...")
-        local_path = hf_hub_download(
-            repo_id=HF_REPO_ID, 
-            filename=chunk_file, 
-            repo_type="dataset", 
-            token=HF_TOKEN
-        )
-        with open(local_path, "r", encoding="utf-8") as f:
-            for line in f:
-                if line.strip():
-                    all_records.append(json.loads(line))
-
-    print(f"\n✓ Collected {len(all_records)} total records across {len(chunk_files)} batch chunks.")
-
-    # 3. Build unified dataframe
-    df = pd.DataFrame(all_records)
-    
-    merged_parquet_path = "train.parquet"
-    merged_jsonl_path = "train.jsonl"
-    
-    df.to_parquet(merged_parquet_path, index=False)
-    df.to_json(merged_jsonl_path, orient="records", lines=True, force_ascii=False)
-
-    # 4. Push merged dataset files to root/data on Hugging Face
-    print("📤 Uploading merged dataset (`data/train.parquet` & `data/train.jsonl`) to Hugging Face...")
-    api.upload_file(
-        path_or_fileobj=merged_parquet_path,
-        path_in_repo="data/train.parquet",
-        repo_id=HF_REPO_ID,
-        repo_type="dataset",
-        token=HF_TOKEN
-    )
-    api.upload_file(
-        path_or_fileobj=merged_jsonl_path,
-        path_in_repo="data/train.jsonl",
-        repo_id=HF_REPO_ID,
-        repo_type="dataset",
-        token=HF_TOKEN
-    )
-
-    # Cleanup local merged artifacts
-    if os.path.exists(merged_parquet_path): os.remove(merged_parquet_path)
-    if os.path.exists(merged_jsonl_path): os.remove(merged_jsonl_path)
-
-    print("\n🎉 Consolidation complete! All batch records are merged and ready on Hugging Face.")
-
-# ==========================================
-# MAIN EXECUTION FLOW
-# ==========================================
-def main():
-    os.makedirs(DATA_DIR, exist_ok=True)
-    checkpoint = load_checkpoint()
-    completed = set(checkpoint.get("completed_batches", []))
-    
-    print(f"📋 Found {len(completed)} completed batches in checkpoint: {list(completed)}")
-    
-    batch_processed_in_this_run = False
+    merged_data = []
     
     for batch in KAGGLE_BATCHES:
-        batch_id = batch["batch_id"]
-        crop = batch["crop"]
+        filename = f"{DATA_DIR}/{batch['batch_id']}_{batch['crop_animal'].lower().replace('/', '_')}.jsonl"
+        try:
+            local_path = hf_hub_download(
+                repo_id=HF_REPO_ID,
+                filename=filename,
+                repo_type="dataset",
+                token=HF_TOKEN
+            )
+            with open(local_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        merged_data.append(json.loads(line))
+        except Exception as e:
+            print(f"⚠️ Could not download {filename} for consolidation: {e}")
+
+    if not merged_data:
+        print("❌ No batch data found for consolidation.")
+        return
+
+    consolidated_jsonl = "train.jsonl"
+    consolidated_parquet = "train.parquet"
+
+    # Save local unified files
+    with open(consolidated_jsonl, "w", encoding="utf-8") as f:
+        for entry in merged_data:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+    df = pd.DataFrame(merged_data)
+    df.to_parquet(consolidated_parquet, index=False)
+
+    print(f"📊 Consolidated {len(merged_data)} total samples.")
+
+    # Upload consolidated outputs to repository root
+    print("🚀 Pushing consolidated train.parquet to Hugging Face...")
+    api.upload_file(
+        path_or_fileobj=consolidated_parquet,
+        path_in_repo="train.parquet",
+        repo_id=HF_REPO_ID,
+        repo_type="dataset",
+        commit_message="Add consolidated train.parquet dataset"
+    )
+
+    print("🚀 Pushing consolidated train.jsonl to Hugging Face...")
+    api.upload_file(
+        path_or_fileobj=consolidated_jsonl,
+        path_in_repo="train.jsonl",
+        repo_id=HF_REPO_ID,
+        repo_type="dataset",
+        commit_message="Add consolidated train.jsonl dataset"
+    )
+
+    print("✅ Final dataset successfully consolidated and published!")
+
+def main():
+    if not HF_REPO_ID or not HF_TOKEN or not GEMINI_API_KEY:
+        raise ValueError("Missing required environment variables: HF_REPO_ID, HF_TOKEN, or GEMINI_API_KEY.")
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+    api = HfApi(token=HF_TOKEN)
+    client = genai.Client(api_key=GEMINI_API_KEY)
+
+    # 1. Ensure the dataset repository exists on Hugging Face FIRST
+    print(f"🔍 Ensuring Hugging Face repository '{HF_REPO_ID}' exists...")
+    create_repo(
+        repo_id=HF_REPO_ID,
+        repo_type="dataset",
+        token=HF_TOKEN,
+        exist_ok=True
+    )
+    print("✅ Repository verified on Hugging Face.")
+
+    # 2. Check current progress
+    checkpoint = load_checkpoint()
+    completed = set(checkpoint.get("completed_batches", []))
+
+    remaining_batches = [b for b in KAGGLE_BATCHES if b["batch_id"] not in completed]
+
+    if not remaining_batches:
+        print("⚡ All batches have already been processed.")
+        consolidate_dataset(api)
+        return
+
+    # Process next batch in queue
+    current_batch = remaining_batches[0]
+    batch_id = current_batch["batch_id"]
+    crop = current_batch["crop_animal"].lower().replace("/", "_")
+    output_filename = f"{batch_id}_{crop}.jsonl"
+    local_filepath = os.path.join(DATA_DIR, output_filename)
+    repo_filepath = f"{DATA_DIR}/{output_filename}"
+
+    print(f"⚙️ Processing {batch_id}: {current_batch['crop_animal']} - {current_batch['disease_condition']} ({current_batch['language']})...")
+
+    try:
+        records = generate_batch_data(client, current_batch)
         
-        if batch_id in completed:
-            continue  # Skip already completed batches
-            
-        print(f"\n🚀 Processing {batch_id} ({crop})...")
+        with open(local_filepath, "w", encoding="utf-8") as f:
+            for record in records:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
         
-        # Simulate local dataset fetch / processing
-        samples = generate_batch_data(crop)
-        
-        # Save batch chunk locally
-        batch_file_path = os.path.join(DATA_DIR, f"{batch_id}_{crop}.jsonl")
-        with open(batch_file_path, "w", encoding="utf-8") as f:
-            for item in samples:
-                f.write(json.dumps(item, ensure_ascii=False) + "\n")
-        
-        # Upload chunk file to Hugging Face repo
-        hf_batch_path = f"data/{batch_id}_{crop}.jsonl"
-        print(f"📤 Uploading batch chunk to Hugging Face: {hf_batch_path}")
+        print(f"💾 Saved {len(records)} generated records to {local_filepath}.")
+
+        # Upload batch output file
+        print(f"📤 Uploading {output_filename} to Hugging Face...")
         api.upload_file(
-            path_or_fileobj=batch_file_path,
-            path_in_repo=hf_batch_path,
+            path_or_fileobj=local_filepath,
+            path_in_repo=repo_filepath,
             repo_id=HF_REPO_ID,
             repo_type="dataset",
-            token=HF_TOKEN
+            commit_message=f"Add generated dataset batch {batch_id}"
         )
-        
-        # Update and upload checkpoint
-        completed.add(batch_id)
-        checkpoint["completed_batches"] = sorted(list(completed))
-        save_and_push_checkpoint(checkpoint)
-        
-        print(f"✅ Successfully finished {batch_id}.")
-        batch_processed_in_this_run = True
-        break  # Process only 1 batch per GitHub Action run to avoid timeouts
+        print(f"✅ Successfully uploaded {output_filename}.")
 
-    # Check if ALL batches are completed
-    if len(completed) >= len(KAGGLE_BATCHES):
-        print("\n🏆 All Kaggle batches have finished processing!")
-        consolidate_dataset()
-    elif not batch_processed_in_this_run:
-        print("ℹ️ No pending batches to run in this trigger.")
+        # Update checkpoint
+        completed.add(batch_id)
+        checkpoint["completed_batches"] = list(completed)
+        save_and_push_checkpoint(checkpoint, api)
+
+        # Trigger final dataset compilation if complete
+        if len(completed) == len(KAGGLE_BATCHES):
+            consolidate_dataset(api)
+
+    except Exception as e:
+        print(f"❌ Execution failed on {batch_id}: {e}")
+        raise e
 
 if __name__ == "__main__":
     main()
