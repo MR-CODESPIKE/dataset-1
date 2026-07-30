@@ -170,7 +170,7 @@ def main():
     api = HfApi(token=HF_TOKEN)
     client = genai.Client(api_key=GEMINI_API_KEY)
 
-    # 1. Ensure the dataset repository exists on Hugging Face FIRST
+    # 1. Ensure the dataset repository exists on Hugging Face
     print(f"🔍 Ensuring Hugging Face repository '{HF_REPO_ID}' exists...")
     create_repo(
         repo_id=HF_REPO_ID,
@@ -191,48 +191,53 @@ def main():
         consolidate_dataset(api)
         return
 
-    # Process next batch in queue
-    current_batch = remaining_batches[0]
-    batch_id = current_batch["batch_id"]
-    crop = current_batch["crop_animal"].lower().replace("/", "_")
-    output_filename = f"{batch_id}_{crop}.jsonl"
-    local_filepath = os.path.join(DATA_DIR, output_filename)
-    repo_filepath = f"{DATA_DIR}/{output_filename}"
+    # 3. Process ALL remaining batches in this single execution run
+    print(f"🔄 Found {len(remaining_batches)} remaining batches. Processing all in this run...")
 
-    print(f"⚙️ Processing {batch_id}: {current_batch['crop_animal']} - {current_batch['disease_condition']} ({current_batch['language']})...")
+    for current_batch in remaining_batches:
+        batch_id = current_batch["batch_id"]
+        crop = current_batch["crop_animal"].lower().replace("/", "_")
+        output_filename = f"{batch_id}_{crop}.jsonl"
+        local_filepath = os.path.join(DATA_DIR, output_filename)
+        repo_filepath = f"{DATA_DIR}/{output_filename}"
 
-    try:
-        records = generate_batch_data(client, current_batch)
-        
-        with open(local_filepath, "w", encoding="utf-8") as f:
-            for record in records:
-                f.write(json.dumps(record, ensure_ascii=False) + "\n")
-        
-        print(f"💾 Saved {len(records)} generated records to {local_filepath}.")
+        print(f"\n⚙️ Processing {batch_id}: {current_batch['crop_animal']} - {current_batch['disease_condition']} ({current_batch['language']})...")
 
-        # Upload batch output file
-        print(f"📤 Uploading {output_filename} to Hugging Face...")
-        api.upload_file(
-            path_or_fileobj=local_filepath,
-            path_in_repo=repo_filepath,
-            repo_id=HF_REPO_ID,
-            repo_type="dataset",
-            commit_message=f"Add generated dataset batch {batch_id}"
-        )
-        print(f"✅ Successfully uploaded {output_filename}.")
+        try:
+            records = generate_batch_data(client, current_batch)
+            
+            with open(local_filepath, "w", encoding="utf-8") as f:
+                for record in records:
+                    f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            
+            print(f"💾 Saved {len(records)} generated records to {local_filepath}.")
 
-        # Update checkpoint
-        completed.add(batch_id)
-        checkpoint["completed_batches"] = list(completed)
-        save_and_push_checkpoint(checkpoint, api)
+            # Upload batch output file
+            print(f"📤 Uploading {output_filename} to Hugging Face...")
+            api.upload_file(
+                path_or_fileobj=local_filepath,
+                path_in_repo=repo_filepath,
+                repo_id=HF_REPO_ID,
+                repo_type="dataset",
+                commit_message=f"Add generated dataset batch {batch_id}"
+            )
+            print(f"✅ Successfully uploaded {output_filename}.")
 
-        # Trigger final dataset compilation if complete
-        if len(completed) == len(KAGGLE_BATCHES):
-            consolidate_dataset(api)
+            # Update checkpoint
+            completed.add(batch_id)
+            checkpoint["completed_batches"] = list(completed)
+            save_and_push_checkpoint(checkpoint, api)
 
-    except Exception as e:
-        print(f"❌ Execution failed on {batch_id}: {e}")
-        raise e
+            # Small delay to respect rate limits
+            time.sleep(2)
+
+        except Exception as e:
+            print(f"❌ Execution failed on {batch_id}: {e}")
+            raise e
+
+    # 4. Trigger final dataset compilation once loop finishes all batches
+    if len(completed) == len(KAGGLE_BATCHES):
+        consolidate_dataset(api)
 
 if __name__ == "__main__":
     main()
