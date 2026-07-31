@@ -1,9 +1,13 @@
 name: Generate Synthetic Queries
 
-# Manually triggered from the GitHub Actions tab (or GitHub mobile app) -
-# no schedule, since this only needs to rerun when the ground-truth KB changes.
+# Manually triggered from the GitHub Actions tab (or GitHub mobile app).
+# Safe to run multiple times across multiple days -- the script resumes from
+# synthetic_queries_progress.json and skips work already completed.
 on:
   workflow_dispatch:
+
+permissions:
+  contents: write   # required so the job can commit synthetic_queries.csv back to the repo
 
 jobs:
   generate:
@@ -11,6 +15,9 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        # Needed so synthetic_queries.csv and synthetic_queries_progress.json
+        # from a PRIOR run are present on disk before the script starts,
+        # otherwise it can't resume and would start from scratch every time.
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -29,12 +36,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: synthetic-queries
-          path: synthetic_queries.csv
+          path: |
+            synthetic_queries.csv
+            synthetic_queries_progress.json
 
       - name: Commit result back to repo
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add synthetic_queries.csv
+          git add synthetic_queries.csv synthetic_queries_progress.json
           git diff --staged --quiet || git commit -m "Update synthetic_queries.csv [auto]"
           git push
