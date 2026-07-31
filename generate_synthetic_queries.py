@@ -51,12 +51,15 @@ LANGUAGES = ["Yoruba", "Hausa", "Igbo", "Nigerian Pidgin", "English"]
 # Swap or reorder freely -- e.g. add "gemma-3-27b-it" earlier if you want to
 # lean harder into the "Build with Gemma" story once you've checked its quota.
 MODEL_CHAIN = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash-lite",
-    "gemma-3-27b-it",
+    "gemini-2.5-flash-lite",  # most generous free tier: 15 RPM / 1,000 RPD
+    "gemini-2.5-flash",       # 10 RPM / 250 RPD
+    "gemini-2.0-flash-lite",  # separate quota bucket from 2.5 models
+    "gemma-4-12b-it",         # Gemma 4 (open model, free tier) -- separate quota bucket
+    "gemma-4-31b-it",
+    "gemma-4-26b-a4b-it",
 ]
 
-QUERIES_PER_LANGUAGE = 15  # full run, no small-batch test -- review manually after
+QUERIES_PER_LANGUAGE = 8  # full run, no small-batch test -- review manually after
 SLEEP_BETWEEN_CALLS = 2.0  # stay under ~15-30 RPM depending on model
 MAX_RETRIES_PER_MODEL = 1  # how many times to retry the SAME model before falling back
 
