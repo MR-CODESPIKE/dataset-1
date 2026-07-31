@@ -56,7 +56,7 @@ MODEL_CHAIN = [
     "gemma-3-27b-it",
 ]
 
-QUERIES_PER_LANGUAGE = 8  # full run, no small-batch test -- review manually after
+QUERIES_PER_LANGUAGE = 15  # full run, no small-batch test -- review manually after
 SLEEP_BETWEEN_CALLS = 2.0  # stay under ~15-30 RPM depending on model
 MAX_RETRIES_PER_MODEL = 1  # how many times to retry the SAME model before falling back
 
