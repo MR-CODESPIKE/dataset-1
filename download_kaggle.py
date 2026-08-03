@@ -54,14 +54,34 @@ def download_and_unzip(slug: str, is_competition: bool, out_dir: Path):
         zip_path.unlink()  # free disk immediately -- 14GB runner budget is tight
 
 
+GENERIC_WRAPPER_NAMES = {"train", "test", "val", "validation", "data", "dataset", "images"}
+
+
 def find_class_folders(root: Path) -> dict[str, list[Path]]:
     """Walks root and groups image files by their immediate parent folder
     name, which is the standard Kaggle image-classification convention
-    (root/split?/ClassName/img.jpg). Returns {folder_name: [image_paths]}."""
+    (root/split?/ClassName/img.jpg). Returns {folder_name: [image_paths]}.
+
+    Some datasets wrap class folders in a generic split folder (e.g.
+    Train/ClassA/img.jpg with no separate Test/ at all, or images sitting
+    directly inside Train/ with no class subfolder). To handle this
+    without needing per-dataset special-casing:
+    - if an image's immediate parent is a generic wrapper name, use the
+      grandparent instead IF the grandparent isn't just `root` itself.
+    - if that still resolves to nothing usable, fall back to the
+      immediate parent so the original unmapped-folder warning still
+      surfaces (rather than silently dropping images).
+    """
     groups: dict[str, list[Path]] = {}
     for p in root.rglob("*"):
         if p.is_file() and p.suffix.lower() in IMAGE_EXTS:
-            class_name = p.parent.name
+            parent = p.parent
+            class_name = parent.name
+            if class_name.lower() in GENERIC_WRAPPER_NAMES and parent != root:
+                # try the grandparent as the real class name instead
+                grandparent_name = parent.parent.name
+                if grandparent_name and parent.parent != root:
+                    class_name = grandparent_name
             groups.setdefault(class_name, []).append(p)
     return groups
 
@@ -107,6 +127,11 @@ def main():
     unmapped = [name for name in groups if name not in label_map]
     if unmapped:
         print(f"WARNING: unmapped class folders found, skipping them: {unmapped}", flush=True)
+        for name in unmapped:
+            sample = groups[name][:3]
+            print(f"  Sample paths under '{name}':", flush=True)
+            for s in sample:
+                print(f"    {s.relative_to(raw_dir)}", flush=True)
         print("Add these to the relevant *_MAP in label_maps.py and re-run if needed.", flush=True)
 
     rows = []
