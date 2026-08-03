@@ -1,0 +1,242 @@
+name: Build Nigeria Disease Datasets
+
+# Manual trigger only -- this hits Kaggle/HF/Mendeley and pushes several
+# GB, so it should run deliberately, not on every push.
+on:
+  workflow_dispatch:
+    inputs:
+      strict_quality:
+        description: "Enable blur/quality filtering (slower)"
+        required: false
+        default: "false"
+
+env:
+  HF_REPO: ${{ vars.HF_DATASET_REPO }}   # e.g. "abdul/nigeria-disease-datasets"
+
+jobs:
+
+  # ---------------------------------------------------------------- CROP --
+
+  plantvillage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r scripts/requirements.txt
+      - name: Download, clean, push PlantVillage
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python scripts/download_hf.py \
+            --dataset plantvillage \
+            --source-name plantvillage \
+            --hf-repo "${{ env.HF_REPO }}" \
+            --hf-subfolder crop/plantvillage \
+            --strict-quality "${{ github.event.inputs.strict_quality }}"
+
+  cassava:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r scripts/requirements.txt
+      - name: Configure Kaggle credentials
+        run: |
+          mkdir -p ~/.kaggle
+          echo "{\"username\":\"${{ secrets.KAGGLE_USERNAME }}\",\"key\":\"${{ secrets.KAGGLE_KEY }}\"}" > ~/.kaggle/kaggle.json
+          chmod 600 ~/.kaggle/kaggle.json
+      - name: Download, clean, push Cassava
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python scripts/download_kaggle.py \
+            --slug nirmalsankalana/cassava-leaf-disease-classification \
+            --source-name cassava \
+            --label-map CASSAVA_MAP \
+            --hf-repo "${{ env.HF_REPO }}" \
+            --hf-subfolder crop/cassava \
+            --is-competition false \
+            --strict-quality "${{ github.event.inputs.strict_quality }}"
+        # NOTE: if this mirror ever disappears, fall back to the original
+        # competition slug below -- but that FIRST requires you to
+        # manually join the competition at
+        # https://www.kaggle.com/c/cassava-leaf-disease-classification/rules
+        # from your Kaggle account (API auth alone does not accept comp rules):
+        #   --slug cassava-leaf-disease-classification --is-competition true
+
+  maize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r scripts/requirements.txt
+      - name: Configure Kaggle credentials
+        run: |
+          mkdir -p ~/.kaggle
+          echo "{\"username\":\"${{ secrets.KAGGLE_USERNAME }}\",\"key\":\"${{ secrets.KAGGLE_KEY }}\"}" > ~/.kaggle/kaggle.json
+          chmod 600 ~/.kaggle/kaggle.json
+      - name: Download, clean, push Maize
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python scripts/download_kaggle.py \
+            --slug smaranjitghose/corn-or-maize-leaf-disease-dataset \
+            --source-name maize \
+            --label-map MAIZE_MAP \
+            --hf-repo "${{ env.HF_REPO }}" \
+            --hf-subfolder crop/maize \
+            --is-competition false \
+            --strict-quality "${{ github.event.inputs.strict_quality }}"
+
+  tom2024:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r scripts/requirements.txt
+      - name: Download, clean, push TOM2024
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python scripts/download_mendeley.py \
+            --doi 10.17632/3d4yg89rtr.1 \
+            --source-name tom2024 \
+            --label-map TOM2024_MAP \
+            --hf-repo "${{ env.HF_REPO }}" \
+            --hf-subfolder crop/tom2024 \
+            --strict-quality "${{ github.event.inputs.strict_quality }}"
+
+  # -------------------------------------------------------------- ANIMAL --
+
+  cattle_lsd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r scripts/requirements.txt
+      - name: Configure Kaggle credentials
+        run: |
+          mkdir -p ~/.kaggle
+          echo "{\"username\":\"${{ secrets.KAGGLE_USERNAME }}\",\"key\":\"${{ secrets.KAGGLE_KEY }}\"}" > ~/.kaggle/kaggle.json
+          chmod 600 ~/.kaggle/kaggle.json
+      - name: Download, clean, push Cattle LSD
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python scripts/download_kaggle.py \
+            --slug shivamagarwal29/cow-lumpy-disease-dataset \
+            --source-name cattle_lsd \
+            --label-map CATTLE_LSD_MAP \
+            --hf-repo "${{ env.HF_REPO }}" \
+            --hf-subfolder animal/cattle_lsd \
+            --is-competition false \
+            --strict-quality "${{ github.event.inputs.strict_quality }}"
+
+  poultry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r scripts/requirements.txt
+      - name: Configure Kaggle credentials
+        run: |
+          mkdir -p ~/.kaggle
+          echo "{\"username\":\"${{ secrets.KAGGLE_USERNAME }}\",\"key\":\"${{ secrets.KAGGLE_KEY }}\"}" > ~/.kaggle/kaggle.json
+          chmod 600 ~/.kaggle/kaggle.json
+      - name: Download, clean, push Poultry
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python scripts/download_kaggle.py \
+            --slug allandclive/chicken-disease-1 \
+            --source-name poultry \
+            --label-map POULTRY_MAP \
+            --hf-repo "${{ env.HF_REPO }}" \
+            --hf-subfolder animal/poultry \
+            --is-competition false \
+            --strict-quality "${{ github.event.inputs.strict_quality }}"
+
+  # --------------------------------------------------------------- HUMAN --
+
+  dermnet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r scripts/requirements.txt
+      - name: Configure Kaggle credentials
+        run: |
+          mkdir -p ~/.kaggle
+          echo "{\"username\":\"${{ secrets.KAGGLE_USERNAME }}\",\"key\":\"${{ secrets.KAGGLE_KEY }}\"}" > ~/.kaggle/kaggle.json
+          chmod 600 ~/.kaggle/kaggle.json
+      - name: Download, clean, push DermNet
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python scripts/download_kaggle.py \
+            --slug shubhamgoel27/dermnet \
+            --source-name dermnet \
+            --label-map DERMNET_MAP \
+            --hf-repo "${{ env.HF_REPO }}" \
+            --hf-subfolder human/dermnet \
+            --is-competition false \
+            --strict-quality "${{ github.event.inputs.strict_quality }}"
+
+  skincap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r scripts/requirements.txt
+      - name: Download, clean, push SkinCAP
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python scripts/download_hf.py \
+            --dataset skincap \
+            --source-name skincap \
+            --hf-repo "${{ env.HF_REPO }}" \
+            --hf-subfolder human/skincap \
+            --strict-quality "${{ github.event.inputs.strict_quality }}"
+
+  # ---------------------------------------------------------------- MERGE --
+
+  merge_labels:
+    needs: [plantvillage, cassava, maize, tom2024, cattle_lsd, poultry, dermnet, skincap]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install huggingface_hub
+      - name: Merge all labels.csv into master
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO: ${{ env.HF_REPO }}
+        run: python scripts/merge_labels.py
