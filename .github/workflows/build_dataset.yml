@@ -30,7 +30,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python scripts/download_hf.py \
+          python download_hf.py \
             --dataset plantvillage \
             --source-name plantvillage \
             --hf-repo "${{ env.HF_REPO }}" \
@@ -55,7 +55,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python scripts/download_kaggle.py \
+          python download_kaggle.py \
             --slug nirmalsankalana/cassava-leaf-disease-classification \
             --source-name cassava \
             --label-map CASSAVA_MAP \
@@ -88,7 +88,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python scripts/download_kaggle.py \
+          python download_kaggle.py \
             --slug smaranjitghose/corn-or-maize-leaf-disease-dataset \
             --source-name maize \
             --label-map MAIZE_MAP \
@@ -110,7 +110,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python scripts/download_mendeley.py \
+          python download_mendeley.py \
             --doi 10.17632/3d4yg89rtr.1 \
             --source-name tom2024 \
             --label-map TOM2024_MAP \
@@ -165,7 +165,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python scripts/download_kaggle.py \
+          python download_kaggle.py \
             --slug allandclive/chicken-disease-1 \
             --source-name poultry \
             --label-map POULTRY_MAP \
@@ -194,7 +194,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python scripts/download_kaggle.py \
+          python download_kaggle.py \
             --slug shubhamgoel27/dermnet \
             --source-name dermnet \
             --label-map DERMNET_MAP \
@@ -216,7 +216,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python scripts/download_hf.py \
+          python download_hf.py \
             --dataset skincap \
             --source-name skincap \
             --hf-repo "${{ env.HF_REPO }}" \
