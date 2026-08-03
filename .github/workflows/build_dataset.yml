@@ -138,7 +138,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python scripts/download_kaggle.py \
+          python download_kaggle.py \
             --slug shivamagarwal29/cow-lumpy-disease-dataset \
             --source-name cattle_lsd \
             --label-map CATTLE_LSD_MAP \
