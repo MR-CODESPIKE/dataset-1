@@ -32,34 +32,35 @@ WORK_DIR = Path("/tmp/hf_work")
 
 
 def process_plantvillage(clean_dir: Path, source_name: str, hf_subfolder: str, strict_quality: bool):
-    ds = load_dataset("mohanty/PlantVillage", "color", split="train")
-    label_names = ds.features["label"].names
-    label_map = label_maps.PLANTVILLAGE_MAP
+    # HF's dataset card documents "color" as the config name, but live runs
+    # have shown only "default" being available (likely due to an
+    # auto-Parquet-conversion that flattened configs) -- try both.
+    ds = None
+    last_err = None
+    for config_name in ("default", "color"):
+        try:
+            ds = load_dataset("mohanty/PlantVillage", config_name, split="train")
+            print(f"Loaded PlantVillage with config '{config_name}'", flush=True)
+            break
+        except ValueError as e:
+            last_err = e
+            continue
+    if ds is None:
+        raise last_err
 
-    unmapped = set(name for name in label_names if name not in label_map)
-    if unmapped:
-        print(f"WARNING: unmapped PlantVillage classes, skipping: {unmapped}", flush=True)
-        print("Extend PLANTVILLAGE_MAP in label_maps.py to include these.", flush=True)
+    # This dataset exposes structured 'crop' and 'disease' columns directly
+    # (confirmed on the dataset card), which is more reliable than parsing
+    # the 'label' string -- use those instead of PLANTVILLAGE_MAP.
+    has_structured_cols = "crop" in ds.column_names and "disease" in ds.column_names
 
-    rows = []
-    counters: dict[str, int] = {}
     tmp_dir = WORK_DIR / "pv_tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
     for i, example in enumerate(ds):
-        label_idx = example["label"]
-        class_name = label_names[label_idx]
-        if class_name not in label_map:
-            continue
-        domain, species, disease_name = label_map[class_name]
         img = example["image"]
         tmp_path = tmp_dir / f"{i:06d}.jpg"
         img.convert("RGB").save(tmp_path, "JPEG", quality=90)
-        counters[class_name] = counters.get(class_name, 0) + 1
 
-    # quality filter + dedup pass, grouped by class to keep dedup scoped
-    # (cross-class near-dupes are extremely unlikely and not worth the
-    # O(n^2) cost across the full 40k+ image set)
     all_tmp = list(tmp_dir.glob("*.jpg"))
     valid = [p for p in all_tmp if is_valid_image(p)]
     if strict_quality:
@@ -68,24 +69,37 @@ def process_plantvillage(clean_dir: Path, source_name: str, hf_subfolder: str, s
     valid = dedupe_images(valid)
     print(f"PlantVillage: kept {len(valid)}/{len(all_tmp)} after cleaning", flush=True)
 
-    # re-derive label for each surviving temp file by re-reading dataset index
     kept_indices = {int(p.stem) for p in valid}
     per_class_counter: dict[str, int] = {}
+    rows = []
+    unmapped_labels = set()
     for i, example in enumerate(ds):
         if i not in kept_indices:
             continue
-        label_idx = example["label"]
-        class_name = label_names[label_idx]
-        if class_name not in label_map:
-            continue
-        domain, species, disease_name = label_map[class_name]
-        norm_disease = normalize_label(disease_name)
+        if has_structured_cols:
+            species = normalize_label(str(example["crop"]))
+            disease_raw = str(example["disease"])
+            norm_disease = normalize_label(disease_raw)
+            domain = "crop"
+        else:
+            # fallback to the manual label map if structured columns are
+            # ever unavailable on a future dataset revision
+            class_name = example["label"]
+            if hasattr(ds.features.get("label"), "names"):
+                class_name = ds.features["label"].names[example["label"]]
+            if class_name not in label_maps.PLANTVILLAGE_MAP:
+                unmapped_labels.add(class_name)
+                continue
+            domain, species, disease_raw = label_maps.PLANTVILLAGE_MAP[class_name]
+            norm_disease = normalize_label(disease_raw)
+
         dest_subdir = clean_dir / domain / species / norm_disease
         dest_subdir.mkdir(parents=True, exist_ok=True)
-        n = per_class_counter.get(class_name, 0)
+        key = f"{species}_{norm_disease}"
+        n = per_class_counter.get(key, 0)
         dest = dest_subdir / f"{source_name}_{n:05d}.jpg"
         shutil.copy2(tmp_dir / f"{i:06d}.jpg", dest)
-        per_class_counter[class_name] = n + 1
+        per_class_counter[key] = n + 1
         rows.append({
             "image_path": f"{hf_subfolder}/{dest.relative_to(clean_dir)}",
             "domain": domain,
@@ -93,6 +107,9 @@ def process_plantvillage(clean_dir: Path, source_name: str, hf_subfolder: str, s
             "disease_name": norm_disease,
             "species": species,
         })
+
+    if unmapped_labels:
+        print(f"WARNING: unmapped PlantVillage labels, skipped: {unmapped_labels}", flush=True)
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
     return rows
