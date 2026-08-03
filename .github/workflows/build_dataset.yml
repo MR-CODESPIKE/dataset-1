@@ -239,4 +239,4 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_REPO: ${{ env.HF_REPO }}
-        run: python scripts/merge_labels.py
+        run: python merge_labels.py
