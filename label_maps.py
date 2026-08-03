@@ -36,9 +36,14 @@ PLANTVILLAGE_MAP = {
 }
 
 CASSAVA_MAP = {
-    # nirmalsankalana/cassava-leaf-disease-classification mirrors the
-    # original competition's integer labels via a label.csv / class folders:
-    # 0: CBB, 1: CBSD, 2: CGM, 3: CMD, 4: Healthy
+    # nirmalsankalana/cassava-leaf-disease-classification actual folder
+    # names confirmed from a live run log
+    "Cassava___bacterial_blight": ("crop", "cassava", "cassava_bacterial_blight"),
+    "Cassava___brown_streak_disease": ("crop", "cassava", "cassava_brown_streak_disease"),
+    "Cassava___green_mottle": ("crop", "cassava", "cassava_green_mottle"),
+    "Cassava___mosaic_disease": ("crop", "cassava", "cassava_mosaic_disease"),
+    "Cassava___healthy": ("crop", "cassava", "healthy"),
+    # keep earlier guesses too in case of alternate releases
     "0": ("crop", "cassava", "cassava_bacterial_blight"),
     "1": ("crop", "cassava", "cassava_brown_streak_disease"),
     "2": ("crop", "cassava", "cassava_green_mottle"),
@@ -86,7 +91,11 @@ TOM2024_MAP = {
 # --------------------------------------------------------------- ANIMAL ---
 
 CATTLE_LSD_MAP = {
-    # shivamagarwal29/cow-lumpy-disease-dataset folder names
+    # shivamagarwal29/cow-lumpy-disease-dataset actual folder names
+    # (confirmed from a live run log)
+    "lumpycows": ("animal", "cattle", "lumpy_skin_disease"),
+    "healthycows": ("animal", "cattle", "healthy"),
+    # keep the earlier guesses too in case a re-upload changes casing/format
     "Lumpy Skin": ("animal", "cattle", "lumpy_skin_disease"),
     "Normal Skin": ("animal", "cattle", "healthy"),
     "Lumpy": ("animal", "cattle", "lumpy_skin_disease"),
