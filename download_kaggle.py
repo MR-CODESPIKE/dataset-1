@@ -184,6 +184,8 @@ def main():
                 print(f"    {s.relative_to(raw_dir)}", flush=True)
         print("Add these to the relevant *_MAP in label_maps.py and re-run if needed.", flush=True)
 
+    MAX_FILES_PER_DIR = 5000  # HF's real limit is 10000; leave real margin
+
     rows = []
     clean_dir.mkdir(parents=True, exist_ok=True)
     total_kept = 0
@@ -194,9 +196,18 @@ def main():
         print(f"--- {class_name}: {len(paths)} raw images ---", flush=True)
         kept = clean_group(paths, strict_quality)
         print(f"    kept {len(kept)}/{len(paths)} after quality filter + dedup", flush=True)
-        dest_subdir = clean_dir / species / normalize_label(disease_name)
-        dest_subdir.mkdir(parents=True, exist_ok=True)
+        norm_disease = normalize_label(disease_name)
+        # Shard into numbered batch subfolders if this class has enough
+        # images to risk hitting HF's per-directory file limit (this bit
+        # cassava's cassava_mosaic_disease class at 13,158 images).
+        needs_sharding = len(kept) > MAX_FILES_PER_DIR
         for i, src in enumerate(kept):
+            if needs_sharding:
+                batch_num = i // MAX_FILES_PER_DIR
+                dest_subdir = clean_dir / species / norm_disease / f"batch_{batch_num:02d}"
+            else:
+                dest_subdir = clean_dir / species / norm_disease
+            dest_subdir.mkdir(parents=True, exist_ok=True)
             dest = dest_subdir / f"{args.source_name}_{i:05d}{src.suffix.lower()}"
             shutil.copy2(src, dest)
             rel_path = f"{args.hf_subfolder}/{dest.relative_to(clean_dir)}"
@@ -204,7 +215,7 @@ def main():
                 "image_path": rel_path,
                 "domain": domain,
                 "source_dataset": args.source_name,
-                "disease_name": normalize_label(disease_name),
+                "disease_name": norm_disease,
                 "species": species,
             })
         total_kept += len(kept)
