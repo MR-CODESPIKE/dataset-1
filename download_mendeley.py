@@ -133,7 +133,7 @@ def main():
         print(f"    kept {len(valid)}/{len(paths)} after cleaning", flush=True)
 
         norm_disease = normalize_label(disease_name)
-        dest_subdir = clean_dir / domain / species / norm_disease
+        dest_subdir = clean_dir / species / norm_disease
         dest_subdir.mkdir(parents=True, exist_ok=True)
         for i, src in enumerate(valid):
             dest = dest_subdir / f"{args.source_name}_{i:05d}{src.suffix.lower()}"
