@@ -57,6 +57,9 @@ def download_and_unzip(slug: str, is_competition: bool, out_dir: Path):
 GENERIC_WRAPPER_NAMES = {"train", "test", "val", "validation", "data", "dataset", "images"}
 
 
+GENERIC_WRAPPER_NAMES = {"train", "test", "val", "validation", "data", "dataset", "images"}
+
+
 def find_class_folders(root: Path) -> dict[str, list[Path]]:
     """Walks root and groups image files by their immediate parent folder
     name, which is the standard Kaggle image-classification convention
@@ -83,6 +86,32 @@ def find_class_folders(root: Path) -> dict[str, list[Path]]:
                 if grandparent_name and parent.parent != root:
                     class_name = grandparent_name
             groups.setdefault(class_name, []).append(p)
+    return groups
+
+
+def find_classes_by_filename_prefix(root: Path, label_map: dict) -> dict[str, list[Path]]:
+    """Fallback grouping strategy for datasets that encode the class in
+    the filename itself rather than in folder structure (e.g.
+    'salmo.1600.jpg', 'healthy.1929.jpg' all sitting flat inside one
+    Train/ folder). Matches each image's filename prefix (before the
+    first '.') against label_map keys. Returns {matched_key: [paths]}
+    using the same label_map keys so downstream code is unchanged."""
+    groups: dict[str, list[Path]] = {}
+    for p in root.rglob("*"):
+        if p.is_file() and p.suffix.lower() in IMAGE_EXTS:
+            prefix = p.stem.split(".")[0].split("_")[0].lower()
+            # try exact match first, then case-insensitive match against
+            # label_map keys
+            matched_key = None
+            if prefix in label_map:
+                matched_key = prefix
+            else:
+                for key in label_map:
+                    if key.lower() == prefix:
+                        matched_key = key
+                        break
+            target = matched_key if matched_key else f"__unmatched_prefix__{prefix}"
+            groups.setdefault(target, []).append(p)
     return groups
 
 
@@ -125,7 +154,28 @@ def main():
     print("=== Grouping by class folder ===", flush=True)
     groups = find_class_folders(raw_dir)
     unmapped = [name for name in groups if name not in label_map]
-    if unmapped:
+    mapped_names = [name for name in groups if name in label_map]
+
+    if not mapped_names:
+        # Folder-based grouping found nothing usable (e.g. all images sit
+        # flat inside a generic Train/ folder with no class subfolders).
+        # Fall back to filename-prefix-based grouping instead.
+        print("No folder names matched the label map -- trying filename-prefix "
+              "grouping instead (e.g. 'salmo.123.jpg' -> 'salmo').", flush=True)
+        groups = find_classes_by_filename_prefix(raw_dir, label_map)
+        unmapped = [name for name in groups if name.startswith("__unmatched_prefix__")]
+        if unmapped:
+            print(f"WARNING: unmatched filename prefixes, skipping them: "
+                  f"{[u.replace('__unmatched_prefix__', '') for u in unmapped]}", flush=True)
+            for name in unmapped:
+                sample = groups[name][:3]
+                print(f"  Sample paths with prefix "
+                      f"'{name.replace('__unmatched_prefix__', '')}':", flush=True)
+                for s in sample:
+                    print(f"    {s.relative_to(raw_dir)}", flush=True)
+            print("Add these prefixes to the relevant *_MAP in label_maps.py and re-run if needed.",
+                  flush=True)
+    elif unmapped:
         print(f"WARNING: unmapped class folders found, skipping them: {unmapped}", flush=True)
         for name in unmapped:
             sample = groups[name][:3]
@@ -144,7 +194,7 @@ def main():
         print(f"--- {class_name}: {len(paths)} raw images ---", flush=True)
         kept = clean_group(paths, strict_quality)
         print(f"    kept {len(kept)}/{len(paths)} after quality filter + dedup", flush=True)
-        dest_subdir = clean_dir / domain / species / normalize_label(disease_name)
+        dest_subdir = clean_dir / species / normalize_label(disease_name)
         dest_subdir.mkdir(parents=True, exist_ok=True)
         for i, src in enumerate(kept):
             dest = dest_subdir / f"{args.source_name}_{i:05d}{src.suffix.lower()}"
