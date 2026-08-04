@@ -103,11 +103,18 @@ CATTLE_LSD_MAP = {
 }
 
 POULTRY_MAP = {
-    # allandclive/chicken-disease-1 folder names (fecal image classes)
-    "cocci": ("animal", "poultry", "coccidiosis"),
-    "healthy": ("animal", "poultry", "healthy"),
-    "ncd": ("animal", "poultry", "newcastle_disease"),
+    # allandclive/chicken-disease-1 -- confirmed from a live run: images
+    # sit flat inside a single Train/ folder with class encoded in the
+    # filename prefix (e.g. "salmo.1600.jpg", "healthy.1929.jpg",
+    # "pcrcocci.291.jpg"). Handled via find_classes_by_filename_prefix().
     "salmo": ("animal", "poultry", "salmonella"),
+    "healthy": ("animal", "poultry", "healthy"),
+    "pcrcocci": ("animal", "poultry", "coccidiosis"),
+    "cocci": ("animal", "poultry", "coccidiosis"),
+    "ncd": ("animal", "poultry", "newcastle_disease"),
+    "pcrncd": ("animal", "poultry", "newcastle_disease"),
+    "pcrsalmo": ("animal", "poultry", "salmonella"),
+    # keep folder-name-style guesses too in case of alternate releases
     "Coccidiosis": ("animal", "poultry", "coccidiosis"),
     "Healthy": ("animal", "poultry", "healthy"),
     "New Castle Disease": ("animal", "poultry", "newcastle_disease"),
