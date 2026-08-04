@@ -48,16 +48,36 @@ def process_plantvillage(clean_dir: Path, source_name: str, hf_subfolder: str, s
     if ds is None:
         raise last_err
 
-    # This dataset exposes structured 'crop' and 'disease' columns directly
-    # (confirmed on the dataset card), which is more reliable than parsing
-    # the 'label' string -- use those instead of PLANTVILLAGE_MAP.
+    print(f"PlantVillage columns: {ds.column_names}", flush=True)
+    print(f"PlantVillage first example keys: {list(ds[0].keys())}", flush=True)
+
+    # Figure out the actual image column and label column defensively --
+    # different dataset revisions have shown different schemas (structured
+    # crop/disease columns vs a single parsed 'label' string), so detect
+    # rather than assume.
+    image_col = None
+    for candidate in ("image", "img", "picture"):
+        if candidate in ds.column_names:
+            image_col = candidate
+            break
+    if image_col is None:
+        print(f"ERROR: no recognizable image column found. "
+              f"Available columns: {ds.column_names}", file=sys.stderr)
+        sys.exit(1)
+
     has_structured_cols = "crop" in ds.column_names and "disease" in ds.column_names
+    has_label_col = "label" in ds.column_names
+
+    if not has_structured_cols and not has_label_col:
+        print(f"ERROR: no 'crop'/'disease' columns and no 'label' column found. "
+              f"Available columns: {ds.column_names}", file=sys.stderr)
+        sys.exit(1)
 
     tmp_dir = WORK_DIR / "pv_tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
     for i, example in enumerate(ds):
-        img = example["image"]
+        img = example[image_col]
         tmp_path = tmp_dir / f"{i:06d}.jpg"
         img.convert("RGB").save(tmp_path, "JPEG", quality=90)
 
@@ -93,7 +113,7 @@ def process_plantvillage(clean_dir: Path, source_name: str, hf_subfolder: str, s
             domain, species, disease_raw = label_maps.PLANTVILLAGE_MAP[class_name]
             norm_disease = normalize_label(disease_raw)
 
-        dest_subdir = clean_dir / domain / species / norm_disease
+        dest_subdir = clean_dir / species / norm_disease
         dest_subdir.mkdir(parents=True, exist_ok=True)
         key = f"{species}_{norm_disease}"
         n = per_class_counter.get(key, 0)
