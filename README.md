@@ -65,6 +65,31 @@ locally if you have a GPU) once a model is on Hugging Face:
 2. `train_kenlm()` is a one-time manual step — see its docstring.
 3. `build_submission()` writes the final CSV in Zindi's expected format.
 
+## Real training data counts (confirmed from Zindi's Train.csv)
+
+Inspected directly (38,176 clean rows via proper CSV quote handling — see
+`data_loading.load_waxal_csv_transcripts()`; pandas' default parser drops
+~150 rows on this file due to embedded quotes/commas in some transcripts):
+
+| Language | Rows | Baseline WER (Sunbird, pre-finetune) |
+|---|---|---|
+| Lingala | 16,240 | 24.3% |
+| Shona | 15,817 | 19.6% |
+| Luganda | 6,119 | 10.9% |
+
+**Correction to earlier planning:** Lingala was assumed to be the
+data-scarce language (hence `LINGALA_AUGMENT_BOOST` in config.py) — it's
+actually the largest split. Luganda has the least data but the best WER,
+suggesting Sunbird's own pretraining already covers it well and your
+fine-tuning has less headroom there. Worth reconsidering training epoch
+allocation between Shona and Luganda in the combined run given this.
+
+**Real transcript format confirmed:** mixed case, full punctuation (e.g.
+`"Ekyuma ekyakolebwa Bamagulumeeru nga kiri mu makkati g'ennyanja..."`).
+`config.py`'s `NORMALIZE_LOWERCASE` / `NORMALIZE_STRIP_PUNCTUATION` are now
+set to `False` to match — this was previously a guess, now corrected
+against real data.
+
 ## Dual T4 (Kaggle "GPU T4 x2")
 
 Confirmed via the accelerator dropdown: this is ONE session with 2 physical

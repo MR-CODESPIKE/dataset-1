@@ -93,6 +93,47 @@ def load_common_voice(iso_code: str, lang_config: str) -> Dataset | None:
         return None
 
 
+def load_waxal_csv_transcripts(csv_path: str) -> dict:
+    """
+    Loads transcript-only rows (id, transcription, language, original_split)
+    from a locally downloaded Zindi Train.csv, keyed by id.
+
+    IMPORTANT: use Python's built-in `csv` module (proper RFC-4180 quote
+    handling), NOT pandas.read_csv with default settings — confirmed by
+    direct inspection that some transcripts contain embedded quotes/commas
+    (e.g. a Lingala row quoting a French title with an internal apostrophe)
+    that pandas' C parser chokes on, silently dropping ~150 rows even with
+    on_bad_lines='warn'. The csv module recovers all but ~23 genuinely
+    malformed rows out of 38,199 (verified by direct inspection).
+
+    This file has NO audio — it's for cross-checking transcript counts/
+    content against the HF-hosted google/WaxalNLP dataset, or as a fallback
+    text source for KenLM training, not for audio-based fine-tuning on its
+    own.
+    """
+    import csv as csv_module
+
+    by_id = {}
+    malformed = 0
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        reader = csv_module.reader(f, quotechar='"', doublequote=True)
+        header = next(reader)
+        for row in reader:
+            if len(row) != len(header):
+                malformed += 1
+                continue
+            record = dict(zip(header, row))
+            by_id[record["id"]] = record
+
+    if malformed:
+        logger.warning(
+            f"{malformed} rows in {csv_path} had malformed quoting and were "
+            f"skipped (out of {len(by_id) + malformed} total)."
+        )
+    logger.info(f"Loaded {len(by_id)} clean transcript rows from {csv_path}")
+    return by_id
+
+
 def build_dataset_for_languages(languages: list[str]) -> DatasetDict:
     """
     Loads and mixes all enabled data sources for the given list of

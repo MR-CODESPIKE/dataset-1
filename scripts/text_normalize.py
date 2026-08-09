@@ -8,13 +8,14 @@ Used in two places:
   2. On model predictions at inference time, before writing the submission
      CSV, to match Zindi's expected format.
 
-IMPORTANT: before relying on this for your real submission, inspect a
-sample of the actual WaxalNLP training transcripts (see the __main__ block)
-and confirm whether they use punctuation/casing at all. If they don't,
-this default config (lowercase + strip punctuation) is correct. If they do,
-turn off NORMALIZE_STRIP_PUNCTUATION / NORMALIZE_LOWERCASE in config.py
-accordingly, or the model will learn a normalization the test set doesn't
-expect.
+CONFIRMED from real Zindi Train.csv (38,176 clean transcripts, inspected
+directly): WaxalNLP transcripts use MIXED CASE and FULL PUNCTUATION —
+e.g. "Ekyuma ekyakolebwa Bamagulumeeru nga kiri mu makkati g'ennyanja
+era nga kizingiddwako akaguwa ak'ekikobe." config.py's defaults
+(NORMALIZE_LOWERCASE=False, NORMALIZE_STRIP_PUNCTUATION=False) now match
+this. Re-verify against Zindi's actual scoring if you ever get signal on
+it (e.g. from a leaderboard score comparison) — this is the best available
+evidence, not a guarantee about the hidden ground truth's exact format.
 """
 
 import re

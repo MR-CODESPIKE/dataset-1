@@ -126,12 +126,32 @@ SPECAUGMENT_TIME_MASK_PARAM = 35
 SPECAUGMENT_NUM_MASKS = 2
 SPECAUGMENT_PROB = 0.3
 
-# Give Lingala extra augmentation weight since it's the weakest baseline —
-# only applies when "lin_asr" is in LANGUAGES for this run.
+# Extra augmentation weight for the language with the weakest fine-tuned
+# starting point (Lingala, 24.3% baseline WER vs Shona 19.6% / Luganda
+# 10.9%). NOTE: earlier reasoning assumed this was because Lingala had the
+# least training data — CORRECTED after inspecting real WaxalNLP counts:
+# Lingala actually has the MOST rows (16,240) of the three, more than
+# Shona (15,817) and over 2x Luganda (6,119). So the WER gap likely comes
+# from something other than raw volume (phonetics, dialectal variation,
+# weaker Sunbird pretraining coverage) — augmentation may help less here
+# than more training epochs or a closer look at transcript/audio quality
+# for Lingala specifically. Kept enabled since it's still a reasonable
+# lever, but don't assume it's the main fix.
 LINGALA_AUGMENT_BOOST = 1.5
 
 # ---------------------------------------------------------------------------
-# Text normalization (Strategy 4) — tune once you've inspected real transcripts
+# Text normalization (Strategy 4)
+#
+# CONFIRMED from real Train.csv (WaxalNLP training transcripts, inspected
+# directly — 38,176 clean rows across lin/sna/lug): transcripts use MIXED
+# CASE and FULL PUNCTUATION (e.g. "Ekyuma ekyakolebwa Bamagulumeeru nga
+# kiri mu makkati g'ennyanja era nga kizingiddwako akaguwa ak'ekikobe.").
+# This directly contradicts an earlier default here (True/True, based on
+# the general competition brief, not real data) — corrected now. If you
+# strip case/punctuation during training but Zindi's ground truth (which
+# very likely comes from this same pipeline) keeps them, you'd be training
+# a mismatch that HURTS WER. Re-verify against Zindi's actual scoring if
+# you get any signal on it, but default to matching the real data now.
 # ---------------------------------------------------------------------------
-NORMALIZE_LOWERCASE = True
-NORMALIZE_STRIP_PUNCTUATION = True
+NORMALIZE_LOWERCASE = False
+NORMALIZE_STRIP_PUNCTUATION = False
