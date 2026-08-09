@@ -46,7 +46,7 @@ jobs:
 
       - name: Prepare Kaggle entry script
         run: |
-          cp scripts/run_pipeline.py waxal-asr-fine-tune.py
+          python scripts/build_kaggle_entry.py
 
       - name: Push kernel to Kaggle
         env:
