@@ -1,7 +1,7 @@
 {
   "id": "abdulumar2244/waxal-asr-finetune",
-  "title": "waxal-asr-fine-tune",
-  "code_file": "scripts/run_pipeline.py",
+  "title": "WAXAL ASR Fine-tune",
+  "code_file": "waxal-asr-fine-tune.py",
   "language": "python",
   "kernel_type": "script",
   "is_private": true,
