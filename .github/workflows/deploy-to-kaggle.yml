@@ -1,0 +1,68 @@
+name: Deploy WAXAL pipeline to Kaggle
+
+# Manually triggered so you control exactly when a (billable-in-time) T4
+# session starts. Also lets you pick which run (combined vs Lingala-solo)
+# without editing code — it overwrites config.py's env-var defaults.
+on:
+  workflow_dispatch:
+    inputs:
+      run_name:
+        description: "Run name (e.g. sna_lug_combined or lin_solo)"
+        required: true
+        default: "sna_lug_combined"
+      languages:
+        description: "Comma-separated WaxalNLP language configs (e.g. sna_asr,lug_asr)"
+        required: true
+        default: "sna_asr,lug_asr"
+
+jobs:
+  push-to-kaggle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Kaggle CLI
+        run: pip install kaggle
+
+      - name: Inject run parameters into config.py
+        run: |
+          sed -i "s/RUN_NAME = os.environ.get(\"WAXAL_RUN_NAME\", \".*\")/RUN_NAME = os.environ.get(\"WAXAL_RUN_NAME\", \"${{ github.event.inputs.run_name }}\")/" scripts/config.py
+          sed -i "s/LANGUAGES = os.environ.get(\"WAXAL_LANGUAGES\", \".*\").split(\",\")/LANGUAGES = os.environ.get(\"WAXAL_LANGUAGES\", \"${{ github.event.inputs.languages }}\").split(\",\")/" scripts/config.py
+
+      - name: Push kernel to Kaggle
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          kaggle kernels push -p .
+
+      - name: Poll kernel status
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          KERNEL_ID=$(python -c "import json; print(json.load(open('kernel-metadata.json'))['id'])")
+          echo "Polling status for $KERNEL_ID every 5 minutes (GitHub Actions job has its own ~6hr max runtime — this will NOT cover a multi-hour training run to completion, see note below)"
+          for i in $(seq 1 60); do
+            STATUS_OUTPUT=$(kaggle kernels status "$KERNEL_ID" 2>&1) || {
+              echo "Status check failed (this endpoint has had reported permission issues for some tokens) — check kaggle.com/code manually."
+              echo "$STATUS_OUTPUT"
+              break
+            }
+            echo "[$i] $STATUS_OUTPUT"
+            if echo "$STATUS_OUTPUT" | grep -qiE "complete|error|cancelled"; then
+              echo "Run reached a terminal state."
+              break
+            fi
+            sleep 300
+          done
+
+      - name: Done
+        run: |
+          echo "If polling above timed out or errored, check https://www.kaggle.com/code directly for final status and outputs."
