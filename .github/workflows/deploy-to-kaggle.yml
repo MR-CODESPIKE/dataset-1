@@ -28,7 +28,14 @@ jobs:
           python-version: "3.11"
 
       - name: Install Kaggle CLI
-        run: pip install kaggle
+        run: |
+          # Pinned, NOT latest: Kaggle's CLI was restructured (Kaggle/kaggle-cli,
+          # now 2.x) with a new OAuth-first auth flow and calls KAGGLE_USERNAME/
+          # KAGGLE_KEY "legacy" credentials. There's also an open bug
+          # (Kaggle/kaggle-cli#1009) where 2.x sometimes fails to pick up legacy
+          # env-var auth correctly even when set right. Pin to 1.6.17 — last
+          # version before the 2.x rewrite — for reliable env-var auth here.
+          pip install kaggle==1.6.17
 
       - name: Inject run parameters into config.py
         run: |
