@@ -28,7 +28,16 @@ jobs:
           python-version: "3.11"
 
       - name: Install Kaggle CLI
-        run: pip install kaggle
+        run: |
+          # Un-pinned again: the earlier 1.6.17 pin assumed KAGGLE_USERNAME/
+          # KAGGLE_KEY (legacy dataset-scoped credentials) should work for
+          # kernel push/run. Root cause found: Kaggle has a SEPARATE "API
+          # Token" (KGAT_... prefix) specifically required for kernel
+          # push/run actions — the legacy username+key pair is scoped for
+          # read actions (datasets, competitions list) only, hence every
+          # 401 surviving CLI-version and account checks. The new CLI is
+          # what's built to consume KAGGLE_API_TOKEN, so use current here.
+          pip install kaggle
 
       - name: Inject run parameters into config.py
         run: |
@@ -37,15 +46,13 @@ jobs:
 
       - name: Push kernel to Kaggle
         env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
         run: |
           kaggle kernels push -p .
 
       - name: Poll kernel status
         env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
         run: |
           KERNEL_ID=$(python -c "import json; print(json.load(open('kernel-metadata.json'))['id'])")
           echo "Polling status for $KERNEL_ID every 5 minutes (GitHub Actions job has its own ~6hr max runtime — this will NOT cover a multi-hour training run to completion, see note below)"
