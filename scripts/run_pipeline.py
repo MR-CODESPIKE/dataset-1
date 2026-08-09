@@ -22,7 +22,7 @@ import logging
 import os
 import sys
 
-import config
+from scripts import config
 
 # ---------------------------------------------------------------------------
 # Kaggle's kernel runner invokes this file directly as `python run_pipeline.py`
@@ -53,12 +53,12 @@ if config.NUM_GPUS > 1 and os.environ.get("WAXAL_ACCELERATE_LAUNCHED") != "1":
     )
     # os.execvp replaces this process entirely — nothing below this line
     # in this branch ever runs.
-from data_loading import build_dataset_for_languages
-from preprocessing import build_prepare_fn, WhisperDataCollator
-from model_setup import load_processor, load_quantized_model, build_llrd_param_groups
-from metrics import build_compute_metrics_fn
-from training import build_trainer
-from hf_push import authenticate, push_final_model
+from scripts.data_loading import build_dataset_for_languages
+from scripts.preprocessing import build_prepare_fn, WhisperDataCollator
+from scripts.model_setup import load_processor, load_quantized_model, build_llrd_param_groups
+from scripts.metrics import build_compute_metrics_fn
+from scripts.training import build_trainer
+from scripts.hf_push import authenticate, push_final_model
 
 logging.basicConfig(
     level=logging.INFO,

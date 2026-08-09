@@ -16,7 +16,7 @@ import random
 import numpy as np
 import librosa
 
-import config
+from scripts import config
 
 
 def maybe_speed_perturb(audio_array: np.ndarray, sr: int, lang: str) -> np.ndarray:

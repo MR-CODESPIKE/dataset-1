@@ -21,7 +21,7 @@ evidence, not a guarantee about the hidden ground truth's exact format.
 import re
 import unicodedata
 
-import config
+from scripts import config
 
 # Basic punctuation to strip. Extend if the real transcripts show more
 # (e.g. curly quotes, em-dashes) once you've inspected them.

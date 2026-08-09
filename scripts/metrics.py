@@ -7,7 +7,7 @@ eval-time WER you see is a realistic estimate of leaderboard WER.
 import evaluate
 import numpy as np
 
-from text_normalize import normalize_text
+from scripts.text_normalize import normalize_text
 
 wer_metric = evaluate.load("wer")
 

@@ -15,7 +15,7 @@ from transformers import (
 )
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
-import config
+from scripts import config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("model_setup")

@@ -16,7 +16,7 @@ import os
 
 from huggingface_hub import login, HfApi
 
-import config
+from scripts import config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("hf_push")

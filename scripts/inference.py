@@ -31,9 +31,9 @@ from datasets import load_dataset, Audio
 
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
-import config
-from text_normalize import normalize_text
-from hf_push import get_repo_id
+from scripts import config
+from scripts.text_normalize import normalize_text
+from scripts.hf_push import get_repo_id
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("inference")

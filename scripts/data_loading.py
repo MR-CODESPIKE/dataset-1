@@ -16,7 +16,7 @@ from datasets import (
     DatasetDict,
 )
 
-import config
+from scripts import config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("data_loading")

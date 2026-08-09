@@ -14,9 +14,9 @@ from typing import Any
 import torch
 from transformers import WhisperFeatureExtractor, WhisperTokenizer
 
-import config
-from augmentation import maybe_speed_perturb, spec_augment
-from text_normalize import normalize_text
+from scripts import config
+from scripts.augmentation import maybe_speed_perturb, spec_augment
+from scripts.text_normalize import normalize_text
 
 
 def build_prepare_fn(

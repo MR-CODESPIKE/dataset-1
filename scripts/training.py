@@ -13,8 +13,8 @@ from transformers import (
     TrainerCallback,
 )
 
-import config
-from hf_push import push_checkpoint
+from scripts import config
+from scripts.hf_push import push_checkpoint
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("training")
