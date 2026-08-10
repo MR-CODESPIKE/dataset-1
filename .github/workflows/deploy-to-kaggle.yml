@@ -39,6 +39,10 @@ jobs:
           # what's built to consume KAGGLE_API_TOKEN, so use current here.
           pip install kaggle
 
+      - name: Install Waxal pipeline dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+
       - name: Inject run parameters into config.py
         run: |
           sed -i "s/RUN_NAME = os.environ.get(\"WAXAL_RUN_NAME\", \".*\")/RUN_NAME = os.environ.get(\"WAXAL_RUN_NAME\", \"${{ github.event.inputs.run_name }}\")/" scripts/config.py
