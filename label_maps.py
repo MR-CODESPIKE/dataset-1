@@ -15,24 +15,47 @@ mislabeling data, so nothing slips through unnoticed.
 # ---------------------------------------------------------------- CROP ----
 
 PLANTVILLAGE_MAP = {
-    # HF mohanty/PlantVillage "color" config uses labels like
-    # "Tomato___Late_blight", "Corn_(maize)___Common_rust_", etc.
-    # Populate fully once you inspect dataset.features["label"].names --
-    # this is a representative starter subset covering Nigerian-relevant
-    # species; extend with the remaining ~30 PlantVillage classes as needed.
+    # emmarex/plantdisease Kaggle mirror uses the classic
+    # "Species___Disease" folder naming (same convention as the original
+    # spMohanty repo). Full 38-class list.
+    "Apple___Apple_scab": ("crop", "apple", "apple_scab"),
+    "Apple___Black_rot": ("crop", "apple", "black_rot"),
+    "Apple___Cedar_apple_rust": ("crop", "apple", "cedar_apple_rust"),
+    "Apple___healthy": ("crop", "apple", "healthy"),
+    "Blueberry___healthy": ("crop", "blueberry", "healthy"),
+    "Cherry_(including_sour)___Powdery_mildew": ("crop", "cherry", "powdery_mildew"),
+    "Cherry_(including_sour)___healthy": ("crop", "cherry", "healthy"),
+    "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot": ("crop", "maize", "gray_leaf_spot"),
     "Corn_(maize)___Common_rust_": ("crop", "maize", "common_rust"),
     "Corn_(maize)___Northern_Leaf_Blight": ("crop", "maize", "northern_leaf_blight"),
-    "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot": ("crop", "maize", "gray_leaf_spot"),
     "Corn_(maize)___healthy": ("crop", "maize", "healthy"),
-    "Tomato___Bacterial_spot": ("crop", "tomato", "bacterial_spot"),
-    "Tomato___Late_blight": ("crop", "tomato", "late_blight"),
-    "Tomato___Early_blight": ("crop", "tomato", "early_blight"),
-    "Tomato___healthy": ("crop", "tomato", "healthy"),
+    "Grape___Black_rot": ("crop", "grape", "black_rot"),
+    "Grape___Esca_(Black_Measles)": ("crop", "grape", "esca_black_measles"),
+    "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)": ("crop", "grape", "leaf_blight"),
+    "Grape___healthy": ("crop", "grape", "healthy"),
+    "Orange___Haunglongbing_(Citrus_greening)": ("crop", "orange", "citrus_greening"),
+    "Peach___Bacterial_spot": ("crop", "peach", "bacterial_spot"),
+    "Peach___healthy": ("crop", "peach", "healthy"),
     "Pepper,_bell___Bacterial_spot": ("crop", "pepper", "bacterial_spot"),
     "Pepper,_bell___healthy": ("crop", "pepper", "healthy"),
     "Potato___Early_blight": ("crop", "potato", "early_blight"),
     "Potato___Late_blight": ("crop", "potato", "late_blight"),
     "Potato___healthy": ("crop", "potato", "healthy"),
+    "Raspberry___healthy": ("crop", "raspberry", "healthy"),
+    "Soybean___healthy": ("crop", "soybean", "healthy"),
+    "Squash___Powdery_mildew": ("crop", "squash", "powdery_mildew"),
+    "Strawberry___Leaf_scorch": ("crop", "strawberry", "leaf_scorch"),
+    "Strawberry___healthy": ("crop", "strawberry", "healthy"),
+    "Tomato___Bacterial_spot": ("crop", "tomato", "bacterial_spot"),
+    "Tomato___Early_blight": ("crop", "tomato", "early_blight"),
+    "Tomato___Late_blight": ("crop", "tomato", "late_blight"),
+    "Tomato___Leaf_Mold": ("crop", "tomato", "leaf_mold"),
+    "Tomato___Septoria_leaf_spot": ("crop", "tomato", "septoria_leaf_spot"),
+    "Tomato___Spider_mites Two-spotted_spider_mite": ("crop", "tomato", "spider_mites"),
+    "Tomato___Target_Spot": ("crop", "tomato", "target_spot"),
+    "Tomato___Tomato_Yellow_Leaf_Curl_Virus": ("crop", "tomato", "yellow_leaf_curl_virus"),
+    "Tomato___Tomato_mosaic_virus": ("crop", "tomato", "mosaic_virus"),
+    "Tomato___healthy": ("crop", "tomato", "healthy"),
 }
 
 CASSAVA_MAP = {
