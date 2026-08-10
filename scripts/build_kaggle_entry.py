@@ -19,6 +19,7 @@ lines = [
     "import base64",
     "import os",
     "import runpy",
+    "import subprocess",
     "import sys",
     "from pathlib import Path",
     "",
@@ -31,6 +32,7 @@ lines = [
     "runtime_root_str = str(runtime_root)",
     "sys.path.insert(0, runtime_root_str)",
     "os.environ['PYTHONPATH'] = runtime_root_str + os.pathsep + os.environ.get('PYTHONPATH', '')",
+    "subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--quiet', 'evaluate', 'jiwer'])",
     "runpy.run_module('scripts.run_pipeline', run_name='__main__')",
     "",
 ]
